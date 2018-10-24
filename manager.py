@@ -3,10 +3,11 @@ import threading
 import requests
 
 from handler import Handler
+from lock import LOCK
 
 
-def handler(start, end, url, filename):
-    h = Handler(start, end, url, filename)
+def handler(start, end, url, file):
+    h = Handler(start, end, url, file)
     h.run()
     return h
 
@@ -29,17 +30,23 @@ class Manager:
         return self.size
 
     def prepare(self):
+        LOCK.acquire()
         fp = open(self.filename, "wb")
-        fp.write(b"\x00" * self.filename)
+        fp.write(b"\x00" * self.size)
         fp.close()
+        LOCK.release()
 
     def run(self):
+        file = open(self.filename, "r+b")
         part = self.size // self.threads
-        for i in range(self.threads):
-            start = part * i
+        end = -1
+        while end < self.size:
+            start = end + 1
             end = start + part
+            if end > self.size:
+                end = self.size
             t = threading.Thread(target=handler,
-                                 kwargs={"start": start, "end": end, "url": self.url, "filename": self.filename})
+                                 kwargs={"start": start, "end": end, "url": self.url, "file": file})
             t.setDaemon(True)
             t.start()
         main_thread = threading.current_thread()
@@ -47,4 +54,5 @@ class Manager:
             if t is main_thread:
                 continue
             t.join()
+        file.close()
         print("{} downloaded".format(self.filename))
