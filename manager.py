@@ -1,30 +1,50 @@
+import threading
+
 import requests
+
+from handler import Handler
+
+
+def handler(start, end, url, filename):
+    h = Handler(start, end, url, filename)
+    h.run()
+    return h
 
 
 class Manager:
-    # 构造函数
-    def __init__(self, url, num, filename):
-        # 要下载的数据连接
-        self.url = url
-        # 要开的线程数
-        self.num = num
-        # 存储文件的名字，从url最后面取
-        self.filename = filename
-        # head方法去请求url
-        r = requests.head(self.url)
-        # headers中取出数据的长度
-        self.total = int(r.headers["Content-Length"])
+    def __init__(self, url_of_file, number_of_threads=1, filename=None):
+        self.url = url_of_file
+        self.threads = number_of_threads
+        if not filename:
+            self.filename = url_of_file.split("/")[-1]
+        else:
+            self.filename = filename
+        r = requests.head(url_of_file)
+        try:
+            self.size = int(r.headers["content-length"])
+        except:
+            self.size = -1
 
-    def get_range(self):
-        ranges = []
-        # 比如total是50,线程数是4个。offset就是12
-        offset = int(self.total / self.num)
-        for i in range(self.num):
-            if i == self.num - 1:
-                # 最后一个线程，不指定结束位置，取到最后
-                ranges.append((i * offset, ""))
-            else:
-                # 每个线程取得区间
-                ranges.append((i * offset, (i + 1) * offset))
-        # range大概是[(0,12),(12,24),(25,36),(36,'')]
-        return ranges
+    def __len__(self):
+        return self.size
+
+    def prepare(self):
+        fp = open(self.filename, "wb")
+        fp.write(b"\x00" * self.filename)
+        fp.close()
+
+    def run(self):
+        part = self.size // self.threads
+        for i in range(self.threads):
+            start = part * i
+            end = start + part
+            t = threading.Thread(target=handler,
+                                 kwargs={"start": start, "end": end, "url": self.url, "filename": self.filename})
+            t.setDaemon(True)
+            t.start()
+        main_thread = threading.current_thread()
+        for t in threading.enumerate():
+            if t is main_thread:
+                continue
+            t.join()
+        print("{} downloaded".format(self.filename))
