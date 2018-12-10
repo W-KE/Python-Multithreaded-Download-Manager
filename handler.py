@@ -1,5 +1,3 @@
-from time import sleep
-
 import requests
 
 from lock import LOCK
@@ -15,10 +13,8 @@ class Handler:
     def write(self, data):
         LOCK.acquire()
         print("Writing: {} - {}".format(self.start, self.end))
-        # fp = open(self.filename, "r+b")
         self.file.seek(self.start)
         self.file.write(data)
-        # fp.close()
         LOCK.release()
 
     def run(self):

@@ -1,6 +1,10 @@
-from manager import Manager
+import sys
+
+from PyQt5.QtWidgets import QApplication
+
+from gui import App
 
 if __name__ == '__main__':
-    manager = Manager("http://dl.eagleget.com/latest/eagleget_setup.exe", 1024)
-    manager.prepare()
-    manager.run()
+    app = QApplication(sys.argv)
+    ex = App()
+    sys.exit(app.exec_())
